@@ -1,31 +1,83 @@
 package com.mayank.ivr_voice_app_v3.android.UI.Components
-
 import android.content.Context
 import android.media.MediaPlayer
-import android.net.Uri
+import android.util.Log
 import android.widget.Toast
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.core.net.toUri
+import com.mayank.ivr_voice_app_v3.android.FunctionalComponents.BluetoothRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
-//@Composable
-fun playAudio(uri: Uri, context: Context) {
-    var mediaPlayer: MediaPlayer? = null
+fun playAudio(
+    context: Context,
+    category: String,
+    language: String,
+    isaudiorunning: MutableState<Boolean>,
+    mediaPlayer: MutableState<MediaPlayer?>,
+) {
+    val maindirname = "IVR_AUDIO_LOCATION"
+    val maindir = File(context.getExternalFilesDir(null), maindirname)
 
-    // Ensure the MediaPlayer is initialized
     CoroutineScope(Dispatchers.IO).launch {
-        mediaPlayer = MediaPlayer().apply {
-            setDataSource(context, uri) // Set the data source to the URI
-            prepare() // Prepare the media player asynchronously
-            start() // Start playing
+        if (!maindir.exists()) {
+            Log.e("Audio", "MainDIR doesn't exist")
+            sendStopResponse("MainDIR doesn't exist", isaudiorunning)
+            return@launch
         }
 
-        // Release the MediaPlayer when done or if the composable leaves the composition
+        val categoryDir = File(maindir, category)
+        if (!categoryDir.exists()) {
+            Log.e("Audio", "category doesn't exist")
+            sendStopResponse("Category doesn't exist", isaudiorunning)
+            return@launch
+        }
 
+        val languageAudioFile = File(categoryDir, "$language.mp3")
+        if (!languageAudioFile.exists()) {
+            Log.e("Audio", "Language doesn't exist")
+            sendStopResponse("Language doesn't exist", isaudiorunning)
+            return@launch
+        }
+
+        val fileUri = languageAudioFile.toUri()
+
+        // Create and prepare the MediaPlayer
+        mediaPlayer.value = MediaPlayer().apply {
+            setDataSource(context, fileUri)
+            prepare() // Prepare synchronously
+            start() // Start playing
+            isaudiorunning.value = true
+
+            setOnCompletionListener {
+
+                releaseMediaPlayer(mediaPlayer)
+                sendStopResponse("Perfectly Responded", isaudiorunning)
+            }
+        }
+
+        // Optional: Show a toast message or any UI feedback
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "Playing audio...", Toast.LENGTH_SHORT).show()
+        }
     }
+}
 
-    // Optional: Show a toast message or any UI feedback
-    Toast.makeText(context, "Playing audio...", Toast.LENGTH_SHORT).show()
+// Function to send stop response via Bluetooth
+private fun sendStopResponse(response: String, isaudiorunning: MutableState<Boolean>) {
+    isaudiorunning.value = false
+    val message = hashMapOf<String, String>(
+        "event" to "stop",
+        "responce" to response
+    )
+    BluetoothRepository.myBluetooth.sendData(message)
+}
+
+// Function to release MediaPlayer resources
+private fun releaseMediaPlayer(mediaPlayer: MutableState<MediaPlayer?>) {
+    mediaPlayer.value?.release()
+    mediaPlayer.value = null // Set to null to avoid memory leaks
 }

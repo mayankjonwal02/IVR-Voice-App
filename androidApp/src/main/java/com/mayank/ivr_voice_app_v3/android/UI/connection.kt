@@ -5,6 +5,7 @@ import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -46,8 +47,6 @@ import com.mayank.ivr_voice_app_v3.android.UI.Components.playAudio
 import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
-import java.net.URI
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("MissingPermission")
@@ -63,6 +62,10 @@ fun connection()
     }
     var showaudiofiles = remember {
         mutableStateOf(false)
+    }
+
+    var mediaPlayer = remember {
+        mutableStateOf<MediaPlayer?>(null)
     }
     
     var intentlauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult())
@@ -150,7 +153,7 @@ fun connection()
 
     @Composable
     fun myaudiofiles(showaudiofiles: MutableState<Boolean>) {
-        var filedict = mutableMapOf<String, List<Uri>>()
+        var filedict = mutableMapOf<String, List<File>>()
         val maindirname = "IVR_AUDIO_LOCATION"
         val maindir = File(context.getExternalFilesDir(null), maindirname)
 
@@ -169,8 +172,8 @@ fun connection()
                 // Ensure subdir exists before listing files
                 if (subdir.isDirectory) {
                     val languagelist = subdir.listFiles()?.map {
-//                        it.toURI()
-                    Uri.fromFile(it)
+                        it
+//                    Uri.fromFile(it)
                     } ?: emptyList()
                     filedict[category] = languagelist
                 }
@@ -204,13 +207,13 @@ fun connection()
                         }
                         items(value) { language ->
                             Text(
-                                text = language.toString(),
+                                text = language.name.toString(),
                                 modifier = Modifier
                                     .wrapContentWidth()
                                     .background(Color.Magenta.copy(alpha = 0.1f))
                                     .padding(12.dp)
                                     .clickable {
-                                        playAudio(uri = language, context = context)
+
                                     },
                                 textAlign = TextAlign.Center,
                                 color = Color.Black

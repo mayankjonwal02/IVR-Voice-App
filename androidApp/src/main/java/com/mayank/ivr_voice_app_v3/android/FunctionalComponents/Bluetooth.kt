@@ -39,6 +39,11 @@ class BluetoothViewModel(private val context: Context) : ViewModel() {
     private var connectJob: Job? = null
     private var serverSocket: BluetoothServerSocket? = null
 
+
+    fun resetmessage()
+    {
+        _receivedData.value = null
+    }
     @SuppressLint("MissingPermission")
     fun fetchPairedDevices() {
         if (bluetoothAdapter == null) {
